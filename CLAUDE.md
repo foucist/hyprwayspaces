@@ -69,13 +69,17 @@ for s in {a,c,e}-1; do hws launch --if-empty $s -- foot; done
 
 `hyprwayspaces-swap` has two forms: two slots (windows-only swap) or two bare letters (swap every workspace 1..10 and the scratchpad of the two contexts in one atomic snapshot-then-move pass).
 
-## Firefox tab-saver extension
+## project-state/
 
-`firefox-extension/` is a tiny WebExtension. The user clicks the toolbar icon on a Firefox window, types a project name, and that window's tabs are dumped to `~/.config/hyprwayspaces/projects/<name>.{json,urls}` via native messaging. The window keeps the mark across reload via `sessions.setWindowValue`. Subsequent tab/URL changes auto-dump (debounced 1.5s).
+A directory for tooling that snapshots and restores per-project state across apps. Browser tab dumps are the first one; future additions (terminal sessions, editor state, etc.) live alongside.
 
-`native-host/hyprwayspaces-tab-saver` is the helper (Python, length-prefixed JSON over stdin/stdout per Mozilla's protocol). `install.sh` generates `~/.mozilla/native-messaging-hosts/hyprwayspaces.json` to register it.
+### project-state/browser/
 
-The `.urls` file is one URL per line; `hyprwayspaces-load-tabs <project> <slot>` reads it and runs `hyprwayspaces-launch <slot> -- firefox --new-window URL1 URL2 ...`.
+Tiny WebExtension that marks Firefox windows with a project name (via `sessions.setWindowValue`, survives reload). The user clicks the toolbar icon, types a project name, and that window's tabs auto-dump to `~/.config/hyprwayspaces/projects/<name>.{json,urls}` on tab change events (debounced 1.5s).
+
+Dumps go through a Python native messaging host (`project-state/browser/native-host/hyprwayspaces-tab-saver`) — length-prefixed JSON over stdin/stdout per Mozilla's protocol. `install.sh` generates `~/.mozilla/native-messaging-hosts/hyprwayspaces.json` to register the host path.
+
+`.urls` is one URL per line; `project-state/browser/hyprwayspaces-load-tabs <project> <slot>` reads it and shells out to `hyprwayspaces-launch <slot> -- firefox --new-window URL1 URL2 ...`.
 
 For permanent Firefox use the extension needs to be signed (Developer Edition / Nightly / AMO unlisted signing). Loading via about:debugging "Load Temporary Add-on" works per-session for testing.
 

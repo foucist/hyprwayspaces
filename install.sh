@@ -30,7 +30,7 @@ link "$REPO/bin/hyprwayspaces-move"                "$HOME/.config/hypr/scripts/h
 link "$REPO/bin/hyprwayspaces-launch"              "$HOME/.config/hypr/scripts/hyprwayspaces-launch"
 link "$REPO/bin/hyprwayspaces-swap"                "$HOME/.config/hypr/scripts/hyprwayspaces-swap"
 link "$REPO/bin/hyprwayspaces-launch-terms"        "$HOME/.config/hypr/scripts/hyprwayspaces-launch-terms"
-link "$REPO/bin/hyprwayspaces-load-tabs"           "$HOME/.config/hypr/scripts/hyprwayspaces-load-tabs"
+link "$REPO/project-state/browser/hyprwayspaces-load-tabs"       "$HOME/.config/hypr/scripts/hyprwayspaces-load-tabs"
 link "$REPO/bin/hyprwayspaces-state"               "$HOME/.config/hypr/scripts/hyprwayspaces-state"
 link "$REPO/bin/hws"                               "$HOME/.local/bin/hws"
 link "$REPO/hypr/hyprwayspaces-keys.conf"          "$HOME/.config/hypr/hyprwayspaces-keys.conf"
@@ -43,8 +43,8 @@ link "$REPO/templates/waybar.config.jsonc"         "$HOME/.config/waybar/config.
 NATIVE_HOST_DIR="$HOME/.mozilla/native-messaging-hosts"
 mkdir -p "$NATIVE_HOST_DIR"
 host_manifest="$NATIVE_HOST_DIR/hyprwayspaces.json"
-host_path="$REPO/native-host/hyprwayspaces-tab-saver"
-sed "s|__HOST_PATH__|${host_path}|" "$REPO/native-host/manifest.template.json" > "$host_manifest"
+host_path="$REPO/project-state/browser/native-host/hyprwayspaces-tab-saver"
+sed "s|__HOST_PATH__|${host_path}|" "$REPO/project-state/browser/native-host/manifest.template.json" > "$host_manifest"
 chmod +x "$host_path"
 echo "wrote $host_manifest"
 
@@ -74,7 +74,7 @@ Done. To finish setup:
 
    - Open Firefox, go to about:debugging#/runtime/this-firefox
    - Click "Load Temporary Add-on…"
-   - Select: $REPO/firefox-extension/manifest.json
+   - Select: $REPO/project-state/browser/extension/manifest.json
 
    Then click the toolbar icon on any Firefox window, type a project name
    (e.g. "fluency"), and hit save. Tab dumps go to:
