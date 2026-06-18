@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Launch N terminals across <ctx>-1..N with CWD set.
+#
+# Usage: hyprwayspaces-launch-terms <dir-or-query> <count> [<context>]
+#
+#   <dir-or-query>  An existing directory path; or a zoxide query string,
+#                   resolved to the most-used matching dir.
+#   <count>         1-10
+#   <context>       a-e, defaults to current active context.
+#
+# Uses xdg-terminal-exec so the user's preferred terminal is honored.
+# Each spawn is idempotent (--if-empty), so running this twice is safe.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+
+usage() {
+    sed -n '2,13p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+[[ $# -ge 2 && $# -le 3 ]] || usage
+
+query="$1"
+count="$2"
+ctx="${3:-$(cat "$STATE_FILE" 2>/dev/null || echo a)}"
+
+if [[ ! "$count" =~ ^[0-9]+$ ]] || (( count < 1 || count > 10 )); then
+    echo "count must be 1-10 (got: $count)" >&2
+    exit 1
+fi
+
+if [[ ! "$ctx" =~ ^[a-e]$ ]]; then
+    echo "context must be a single letter a-e (got: $ctx)" >&2
+    exit 1
+fi
+
+# Resolve directory: existing path wins; otherwise treat as zoxide query.
+expanded="${query/#\~/$HOME}"
+if [[ -d "$expanded" ]]; then
+    cwd="$expanded"
+elif command -v zoxide >/dev/null 2>&1 && cwd=$(zoxide query "$query" 2>/dev/null) && [[ -d "$cwd" ]]; then
+    : # cwd populated via zoxide
+else
+    notify-send -u critical "hyprwayspaces-launch-terms" "Could not resolve: $query"
+    exit 1
+fi
+
+launcher="$REPO_ROOT/bin/hyprwayspaces-launch"
+
+for n in $(seq 1 "$count"); do
+    "$launcher" --if-empty "$ctx-$n" -- xdg-terminal-exec --dir="$cwd"
+done
+
+notify-send -u low "hyprwayspaces" "Launched $count terminal(s) in $ctx at $cwd"

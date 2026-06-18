@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Short alias dispatcher: `hws <verb> [args...]` runs `hyprwayspaces-<verb>`.
+#
+# Verbs (anything matching a hyprwayspaces-* script on PATH or in this repo):
+#   switcher, move, launch, launch-terms, swap,
+#   scratchpad-toggle, scratchpad-move
+
+if [[ $# -lt 1 ]]; then
+    cat <<EOF >&2
+usage: hws <verb> [args...]
+
+Verbs: switcher, move, launch, launch-terms, swap,
+       scratchpad-toggle, scratchpad-move
+EOF
+    exit 1
+fi
+
+verb="$1"; shift
+
+# Look for hyprwayspaces-<verb> on PATH first, then in this script's dir.
+target="hyprwayspaces-${verb}"
+if ! command -v "$target" >/dev/null 2>&1; then
+    here="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+    if [[ -x "$here/$target" ]]; then
+        target="$here/$target"
+    else
+        echo "hws: unknown verb '$verb' (no $target found)" >&2
+        exit 1
+    fi
+fi
+
+exec "$target" "$@"

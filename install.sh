@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar" "$REPO/generated"
+mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar" "$HOME/.local/bin" "$REPO/generated"
 
 link() {
     local src="$1" dst="$2"
@@ -29,6 +29,8 @@ link "$REPO/bin/hyprwayspaces-scratchpad-move"     "$HOME/.config/hypr/scripts/h
 link "$REPO/bin/hyprwayspaces-move"                "$HOME/.config/hypr/scripts/hyprwayspaces-move"
 link "$REPO/bin/hyprwayspaces-launch"              "$HOME/.config/hypr/scripts/hyprwayspaces-launch"
 link "$REPO/bin/hyprwayspaces-swap"                "$HOME/.config/hypr/scripts/hyprwayspaces-swap"
+link "$REPO/bin/hyprwayspaces-launch-terms"        "$HOME/.config/hypr/scripts/hyprwayspaces-launch-terms"
+link "$REPO/bin/hws"                               "$HOME/.local/bin/hws"
 link "$REPO/hypr/hyprwayspaces-keys.conf"          "$HOME/.config/hypr/hyprwayspaces-keys.conf"
 link "$REPO/templates/waybar.config.jsonc"         "$HOME/.config/waybar/config.jsonc"
 

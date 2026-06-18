@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Swap the contents of two slots.
+# Swap the contents of two slots, or two whole contexts.
 #
-# Usage: hyprwayspaces-swap <slot-a> <slot-b>
+# Usage:
+#   hyprwayspaces-swap <slot-a> <slot-b>     swap two slots' windows
+#   hyprwayspaces-swap <ctx-a> <ctx-b>       swap two entire contexts (all 10 workspaces + scratchpad)
 #
 # Examples:
-#   hyprwayspaces-swap a-s b-s        swap the scratchpad contents of contexts a and b
-#   hyprwayspaces-swap a-1 a-2        swap workspaces 1 and 2 within the same context
-#   hyprwayspaces-swap a-3 c-1        cross-context swap
+#   hyprwayspaces-swap a-s b-s     swap scratchpads of contexts a and b
+#   hyprwayspaces-swap a-1 a-2     swap workspaces 1 and 2 within context a
+#   hyprwayspaces-swap a-3 c-1     cross-context slot swap
+#   hyprwayspaces-swap a b         swap every workspace and scratchpad of a with b
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 STATE_FILE="$REPO_ROOT/generated/current-context"
 
 usage() {
-    sed -n '2,9p' "$0" | sed 's/^# \?//'
+    sed -n '2,12p' "$0" | sed 's/^# \?//'
     exit "${1:-1}"
 }
 
@@ -53,6 +56,60 @@ dispatch_form() {
     fi
 }
 
+# Detect form: two bare letters → context swap, else slot swap
+if [[ "$1" =~ ^[a-e]$ && "$2" =~ ^[a-e]$ ]]; then
+    a="$1"; b="$2"
+    if [[ "$a" == "$b" ]]; then
+        notify-send -u low "hyprwayspaces-swap" "Same context: $a"
+        exit 0
+    fi
+
+    # Compute target dispatch form for each affected workspace name.
+    target_for_ws() {
+        local ws="$1"
+        case "$ws" in
+            "special:scratch-${a}") echo "special:scratch-${b}"; return ;;
+            "special:scratch-${b}") echo "special:scratch-${a}"; return ;;
+        esac
+        if [[ "$ws" =~ ^([0-9]+)$ ]]; then
+            local num="${BASH_REMATCH[1]}"
+            if [[ "$current" == "$a" ]]; then
+                echo "name:_${b}-${num}"
+            elif [[ "$current" == "$b" ]]; then
+                echo "name:_${a}-${num}"
+            fi
+            return
+        fi
+        if [[ "$ws" =~ ^_([a-e])-([0-9]+)$ ]]; then
+            local letter="${BASH_REMATCH[1]}" num="${BASH_REMATCH[2]}"
+            if [[ "$letter" == "$a" ]]; then
+                if [[ "$current" == "$b" ]]; then echo "name:${num}"
+                else echo "name:_${b}-${num}"; fi
+            elif [[ "$letter" == "$b" ]]; then
+                if [[ "$current" == "$a" ]]; then echo "name:${num}"
+                else echo "name:_${a}-${num}"; fi
+            fi
+        fi
+    }
+
+    # Snapshot all affected addresses → destination dispatch.
+    declare -A targets
+    while IFS=$'\t' read -r addr ws; do
+        dst=$(target_for_ws "$ws")
+        [[ -n "$dst" ]] && targets[$addr]="$dst"
+    done < <(hyprctl clients -j | jq -r '.[] | "\(.address)\t\(.workspace.name)"')
+
+    moved=0
+    for addr in "${!targets[@]}"; do
+        hyprctl dispatch movetoworkspacesilent "${targets[$addr]},address:${addr}" >/dev/null
+        moved=$((moved + 1))
+    done
+
+    notify-send -u low "hyprwayspaces" "Swapped contexts: $a ↔ $b ($moved windows)"
+    exit 0
+fi
+
+# Two-slot swap
 a_bare=$(slot_to_bare "$1") || exit 1
 b_bare=$(slot_to_bare "$2") || exit 1
 
@@ -64,7 +121,6 @@ fi
 a_dispatch=$(dispatch_form "$a_bare")
 b_dispatch=$(dispatch_form "$b_bare")
 
-# Snapshot both sides BEFORE any moves — addresses stay valid regardless of moves.
 mapfile -t addrs_a < <(hyprctl clients -j | jq -r --arg ws "$a_bare" '.[] | select(.workspace.name == $ws) | .address')
 mapfile -t addrs_b < <(hyprctl clients -j | jq -r --arg ws "$b_bare" '.[] | select(.workspace.name == $ws) | .address')
 
