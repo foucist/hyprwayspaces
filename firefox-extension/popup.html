@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: system-ui, sans-serif; font-size: 13px; padding: 10px; min-width: 220px; }
+        h1 { font-size: 13px; margin: 0 0 8px; }
+        .row { display: flex; gap: 6px; align-items: center; }
+        input { flex: 1; padding: 4px; box-sizing: border-box; }
+        button { padding: 4px 10px; }
+        .marked { color: #2a7; margin-bottom: 8px; }
+        .unmarked { color: #777; margin-bottom: 8px; }
+        #status { margin-top: 6px; min-height: 1em; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>hyprwayspaces tab saver</h1>
+    <div id="state" class="unmarked">unmarked</div>
+    <div class="row">
+        <input id="name" placeholder="project name" autofocus>
+        <button id="save">save</button>
+    </div>
+    <div class="row" style="margin-top: 6px;">
+        <button id="dump">dump now</button>
+        <button id="unmark">unmark</button>
+    </div>
+    <div id="status"></div>
+    <script src="popup.js"></script>
+</body>
+</html>

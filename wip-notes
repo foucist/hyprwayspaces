@@ -1,0 +1,19 @@
+ any low hanging fruit left?
+
+● A few small wins I'd consider:
+
+  1. Bash completion — hws <TAB> completes verbs; hws switch <TAB> completes up/down/a-{1..10}/a-s etc. Quick to write, daily quality-of-life upgrade.
+
+  2. hws status — one-line summary: ctx=a  ws=1(2win) 2(1win) | scratchpads=a(1) b(0) c(0) | hidden=_b-2(1) _c-1(1). Useful for sanity-checking when things get weird and for
+  scripts (hws status --json).
+
+  3. hws empty <slot> — predicate; exit 0 if empty, 1 otherwise. Mirrors the internal --if-empty logic but exposed for shell composition: hws empty a-1 && hws launch a-1 --
+  alacritty.
+
+  4. Lib factor-out — slot_to_bare / dispatch_form are now duplicated across switch/move/launch/swap/scratchpad-toggle. Move to bin/lib/slots.sh, source it. CLAUDE.md already
+  flagged this as a TODO. ~30 lines saved, easier to keep slot grammar consistent if it evolves.
+
+  5. install.sh could add the source = line to hyprland.conf automatically if it's not present (idempotent grep + append). Currently just prints "add this manually." Cuts one step
+   from a fresh install.
+
+  Pick any, all, or none. My ranking: #1 (highest user-facing payoff) > #4 (best codebase health) > #5 (better OOTB) > #2 > #3.

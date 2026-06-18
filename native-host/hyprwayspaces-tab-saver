@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Native messaging host for the hyprwayspaces Firefox extension.
+
+Receives JSON dumps of marked Firefox windows over stdin (Mozilla's
+4-byte-length-prefixed protocol) and atomically writes them to
+~/.config/hyprwayspaces/projects/<project>.{json,urls}.
+
+`.urls` is one URL per line — directly usable with `firefox --new-window`
+and with `hyprwayspaces-load-tabs`.
+
+`.json` keeps full metadata (title, pinned, active) for richer tooling.
+"""
+import os
+import sys
+import json
+import struct
+import pathlib
+import re
+
+PROJECTS_DIR = pathlib.Path.home() / ".config" / "hyprwayspaces" / "projects"
+NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def read_message():
+    raw_length = sys.stdin.buffer.read(4)
+    if len(raw_length) < 4:
+        return None
+    length = struct.unpack("<I", raw_length)[0]
+    raw = sys.stdin.buffer.read(length)
+    return json.loads(raw)
+
+
+def send_message(obj):
+    encoded = json.dumps(obj).encode("utf-8")
+    sys.stdout.buffer.write(struct.pack("<I", len(encoded)))
+    sys.stdout.buffer.write(encoded)
+    sys.stdout.buffer.flush()
+
+
+def atomic_write(path: pathlib.Path, data: str) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(data)
+    tmp.replace(path)
+
+
+def handle(msg):
+    project = msg.get("project", "")
+    if not isinstance(project, str) or not NAME_RE.match(project):
+        return {"ok": False, "error": f"invalid project name: {project!r}"}
+
+    tabs = msg.get("tabs") or []
+    if not isinstance(tabs, list):
+        return {"ok": False, "error": "tabs must be a list"}
+
+    PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    json_path = PROJECTS_DIR / f"{project}.json"
+    urls_path = PROJECTS_DIR / f"{project}.urls"
+
+    atomic_write(json_path, json.dumps(msg, indent=2, ensure_ascii=False) + "\n")
+
+    urls = []
+    for tab in tabs:
+        url = tab.get("url") if isinstance(tab, dict) else None
+        if isinstance(url, str) and url.strip() and not url.startswith("about:"):
+            urls.append(url.strip())
+    atomic_write(urls_path, "\n".join(urls) + ("\n" if urls else ""))
+
+    return {"ok": True, "project": project, "tabs_total": len(tabs), "urls_written": len(urls)}
+
+
+def main():
+    while True:
+        try:
+            msg = read_message()
+        except Exception as e:
+            send_message({"ok": False, "error": f"read failure: {e}"})
+            return
+        if msg is None:
+            return
+        try:
+            send_message(handle(msg))
+        except Exception as e:
+            send_message({"ok": False, "error": f"handle failure: {e}"})
+
+
+if __name__ == "__main__":
+    main()

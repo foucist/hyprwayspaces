@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "hyprwayspaces tab saver",
+  "version": "0.1.0",
+  "description": "Mark Firefox windows as hyprwayspaces projects; dumps tabs to ~/.config/hyprwayspaces/projects/<name>.{json,urls} on change.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "hyprwayspaces@local",
+      "strict_min_version": "115.0"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "windows",
+    "sessions",
+    "nativeMessaging",
+    "storage"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_title": "Mark this window as a hyprwayspaces project",
+    "default_popup": "popup.html"
+  }
+}

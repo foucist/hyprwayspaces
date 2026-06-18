@@ -36,6 +36,7 @@ bin/                          atomic commands, symlinked into ~/.config/hypr/scr
 ├── hyprwayspaces-move           <source> <dest>...   source = slot or class:/title: selector
 ├── hyprwayspaces-launch         [--if-empty] <slot>... -- <cmd>
 ├── hyprwayspaces-launch-terms   <dir-or-query> <count> [<ctx>]   bulk terminals with CWD
+├── hyprwayspaces-load-tabs      <project> <slot>   open saved Firefox tabs in a slot
 ├── hyprwayspaces-swap           <slot> <slot>   or   <ctx-letter> <ctx-letter>
 ├── hyprwayspaces-scratchpad-toggle    bound to SUPER+S
 └── hyprwayspaces-scratchpad-move      bound to SUPER+ALT+S
@@ -67,6 +68,16 @@ for s in {a,c,e}-1; do hws launch --if-empty $s -- foot; done
 `hyprwayspaces-move`'s source can be a slot OR a selector like `class:Firefox`, `title:lazydocker`. Multiple destinations distribute round-robin.
 
 `hyprwayspaces-swap` has two forms: two slots (windows-only swap) or two bare letters (swap every workspace 1..10 and the scratchpad of the two contexts in one atomic snapshot-then-move pass).
+
+## Firefox tab-saver extension
+
+`firefox-extension/` is a tiny WebExtension. The user clicks the toolbar icon on a Firefox window, types a project name, and that window's tabs are dumped to `~/.config/hyprwayspaces/projects/<name>.{json,urls}` via native messaging. The window keeps the mark across reload via `sessions.setWindowValue`. Subsequent tab/URL changes auto-dump (debounced 1.5s).
+
+`native-host/hyprwayspaces-tab-saver` is the helper (Python, length-prefixed JSON over stdin/stdout per Mozilla's protocol). `install.sh` generates `~/.mozilla/native-messaging-hosts/hyprwayspaces.json` to register it.
+
+The `.urls` file is one URL per line; `hyprwayspaces-load-tabs <project> <slot>` reads it and runs `hyprwayspaces-launch <slot> -- firefox --new-window URL1 URL2 ...`.
+
+For permanent Firefox use the extension needs to be signed (Developer Edition / Nightly / AMO unlisted signing). Loading via about:debugging "Load Temporary Add-on" works per-session for testing.
 
 ## Special workspaces (scratchpads)
 

@@ -30,27 +30,51 @@ link "$REPO/bin/hyprwayspaces-move"                "$HOME/.config/hypr/scripts/h
 link "$REPO/bin/hyprwayspaces-launch"              "$HOME/.config/hypr/scripts/hyprwayspaces-launch"
 link "$REPO/bin/hyprwayspaces-swap"                "$HOME/.config/hypr/scripts/hyprwayspaces-swap"
 link "$REPO/bin/hyprwayspaces-launch-terms"        "$HOME/.config/hypr/scripts/hyprwayspaces-launch-terms"
+link "$REPO/bin/hyprwayspaces-load-tabs"           "$HOME/.config/hypr/scripts/hyprwayspaces-load-tabs"
 link "$REPO/bin/hws"                               "$HOME/.local/bin/hws"
 link "$REPO/hypr/hyprwayspaces-keys.conf"          "$HOME/.config/hypr/hyprwayspaces-keys.conf"
 link "$REPO/templates/waybar.config.jsonc"         "$HOME/.config/waybar/config.jsonc"
 
 [[ -f "$REPO/generated/current-context" ]] || echo -n "a" > "$REPO/generated/current-context"
 
+# Register the Firefox native messaging host (for the tab-saver extension).
+NATIVE_HOST_DIR="$HOME/.mozilla/native-messaging-hosts"
+mkdir -p "$NATIVE_HOST_DIR"
+host_manifest="$NATIVE_HOST_DIR/hyprwayspaces.json"
+host_path="$REPO/native-host/hyprwayspaces-tab-saver"
+sed "s|__HOST_PATH__|${host_path}|" "$REPO/native-host/manifest.template.json" > "$host_manifest"
+chmod +x "$host_path"
+echo "wrote $host_manifest"
+
 cat <<EOF
 
-Done. To finish setup, add this line to ~/.config/hypr/hyprland.conf:
+Done. To finish setup:
 
-    source = ~/.config/hypr/hyprwayspaces-keys.conf
+1. Add this line to ~/.config/hypr/hyprland.conf (after bindings.conf):
 
-(Place it after your existing 'source = ~/.config/hypr/bindings.conf'.)
+       source = ~/.config/hypr/hyprwayspaces-keys.conf
 
-Optional, in ~/.config/hypr/autostart.conf:
+   Optional, in ~/.config/hypr/autostart.conf:
 
-    exec-once = ~/.config/hypr/scripts/hyprwayspaces-switch a
+       exec-once = ~/.config/hypr/scripts/hyprwayspaces-switch a
 
-Then reload hyprland and restart waybar once:
+   Then reload hyprland and restart waybar once:
 
-    hyprctl reload && omarchy-restart-waybar
+       hyprctl reload && omarchy-restart-waybar
 
-After that, context switches via SUPER ALT UP/DOWN never touch waybar again.
+2. Load the Firefox tab-saver extension (one-time, lasts for the Firefox session;
+   for permanent use you need Developer Edition / Nightly, or self-sign via AMO):
+
+   - Open Firefox, go to about:debugging#/runtime/this-firefox
+   - Click "Load Temporary Add-on…"
+   - Select: $REPO/firefox-extension/manifest.json
+
+   Then click the toolbar icon on any Firefox window, type a project name
+   (e.g. "fluency"), and hit save. Tab dumps go to:
+
+       ~/.config/hyprwayspaces/projects/<name>.{json,urls}
+
+   Restore later in any slot with:
+
+       hws load-tabs fluency a-s
 EOF

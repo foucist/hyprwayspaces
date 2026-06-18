@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Open a saved hyprwayspaces project in a fresh Firefox window in the given slot.
+#
+# Usage: hyprwayspaces-load-tabs <project> <slot>
+#
+# Reads ~/.config/hyprwayspaces/projects/<project>.urls (one URL per line) and
+# invokes `hyprwayspaces-launch <slot> -- firefox --new-window URL1 URL2 ...`.
+#
+# The project file is written by the Firefox extension at firefox-extension/.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+PROJECTS_DIR="$HOME/.config/hyprwayspaces/projects"
+
+usage() {
+    sed -n '2,11p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+[[ $# -eq 2 ]] || usage
+project="$1"
+slot="$2"
+
+urls_file="$PROJECTS_DIR/${project}.urls"
+[[ -f "$urls_file" ]] || { echo "no urls file: $urls_file" >&2; exit 1; }
+
+mapfile -t urls < <(grep -v '^[[:space:]]*$' "$urls_file")
+(( ${#urls[@]} > 0 )) || { echo "no URLs in $urls_file" >&2; exit 1; }
+
+launcher="$REPO_ROOT/bin/hyprwayspaces-launch"
+"$launcher" "$slot" -- firefox --new-window "${urls[@]}"
