@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Step to the previous or next workspace within the current context.
+# Clamps at 1 and 10, skips hidden (_*) workspaces from other contexts.
+#
+# Usage: hyprwayspaces-ws-step +1 | -1
+set -euo pipefail
+
+dir="${1:-}"
+case "$dir" in
+    +1|-1) ;;
+    *) echo "usage: $0 +1 | -1" >&2; exit 1 ;;
+esac
+
+active=$(hyprctl activeworkspace -j | jq -r '.name')
+
+# Only step when on a numeric (context-owned) workspace 1..10.
+[[ "$active" =~ ^[0-9]+$ ]] || exit 0
+
+if [[ "$dir" == "+1" ]]; then
+    (( active < 10 )) || exit 0
+    target=$((active + 1))
+else
+    (( active > 1 )) || exit 0
+    target=$((active - 1))
+fi
+
+hyprctl dispatch workspace "name:${target}" >/dev/null
