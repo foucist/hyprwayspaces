@@ -1,3 +1,5 @@
 presets/workspace-presets.yaml
 generated/*
 !generated/.gitkeep
+wip-notes*
+*.local
