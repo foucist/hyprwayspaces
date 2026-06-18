@@ -91,6 +91,10 @@ esac
 mkdir -p "$(dirname "$STATE_FILE")"
 
 if [[ "$current" != "$ctx" ]]; then
+    # Snapshot focused window per workspace before we wreck hyprland's
+    # focus history by moving windows around.
+    "$REPO_ROOT/bin/hyprwayspaces-state" save "$current"
+
     # Build a single hyprctl --batch command for ALL the moves (hide current +
     # show target). With master:new_status=slave the master window must be
     # moved first (top-left in position order), so sort ascending by (y, x).
@@ -116,6 +120,10 @@ if [[ "$current" != "$ctx" ]]; then
 fi
 
 hyprctl dispatch workspace "name:${target_ws}" >/dev/null
+
+# Re-focus the window that was focused in this workspace before the swap,
+# and warp the cursor to it. No-op if there's no saved state yet.
+"$REPO_ROOT/bin/hyprwayspaces-state" restore "$target_ws" "$ctx" 2>/dev/null || true
 
 if [[ "$toggle_scratchpad" == true ]]; then
     hyprctl dispatch togglespecialworkspace "scratch-${ctx}" >/dev/null

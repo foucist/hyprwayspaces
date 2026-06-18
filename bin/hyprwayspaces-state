@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Save or restore per-workspace focus state for a context.
+#
+# Usage:
+#   hyprwayspaces-state save [<ctx>]
+#       Snapshot the focused window per numeric workspace into
+#       generated/workspace-state/<ctx>.json. <ctx> defaults to the current
+#       context. Uses focusHistoryID to pick "most recently focused" per
+#       workspace.
+#
+#   hyprwayspaces-state restore <ws> [<ctx>]
+#       Look up the saved focused window for workspace <ws>, focus it, and
+#       warp the cursor to its center. No-op if no state file or the saved
+#       window isn't in the expected workspace anymore.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+STATE_DIR="$REPO_ROOT/generated/workspace-state"
+
+usage() {
+    sed -n '2,17p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+current_ctx() {
+    cat "$STATE_FILE" 2>/dev/null || echo "a"
+}
+
+cmd="${1:-}"
+[[ -n "$cmd" ]] || usage
+
+case "$cmd" in
+    save)
+        ctx="${2:-$(current_ctx)}"
+        [[ "$ctx" =~ ^[a-e]$ ]] || { echo "invalid ctx: $ctx" >&2; exit 1; }
+        mkdir -p "$STATE_DIR"
+        out="$STATE_DIR/${ctx}.json"
+        tmp="$out.tmp"
+        hyprctl clients -j | jq '
+            [.[] | select(.workspace.name | test("^[0-9]+$"))]
+            | group_by(.workspace.name)
+            | map({
+                key:   .[0].workspace.name,
+                value: (sort_by(.focusHistoryID) | .[0].address)
+              })
+            | from_entries
+        ' > "$tmp"
+        mv "$tmp" "$out"
+        ;;
+
+    restore)
+        ws="${2:-}"
+        ctx="${3:-$(current_ctx)}"
+        [[ -n "$ws" ]] || usage
+        state="$STATE_DIR/${ctx}.json"
+        [[ -f "$state" ]] || exit 0
+
+        addr=$(jq -r --arg ws "$ws" '.[$ws] // empty' "$state")
+        [[ -n "$addr" ]] || exit 0
+
+        client=$(hyprctl clients -j | jq -c --arg addr "$addr" --arg ws "$ws" '
+            .[] | select(.address == $addr and .workspace.name == $ws)
+        ')
+        [[ -n "$client" ]] || exit 0
+
+        hyprctl dispatch focuswindow "address:$addr" >/dev/null
+        cx=$(echo "$client" | jq '(.at[0] + .size[0] / 2) | floor')
+        cy=$(echo "$client" | jq '(.at[1] + .size[1] / 2) | floor')
+        hyprctl dispatch movecursor "$cx $cy" >/dev/null 2>&1 || true
+        ;;
+
+    *)
+        echo "unknown subcommand: $cmd" >&2
+        usage
+        ;;
+esac
