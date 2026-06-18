@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Switch the active context, optionally landing on a specific workspace
+# or opening the scratchpad.
+#
+# Usage:
+#   hyprwayspaces-switch up | down              cycle (capped at a / e)
+#   hyprwayspaces-switch <a-e>                  switch to context, land on workspace 1
+#   hyprwayspaces-switch <a-e>-<1..10>          switch and land on a specific workspace
+#   hyprwayspaces-switch <a-e>-s                switch and toggle the scratchpad
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+
+usage() {
+    sed -n '2,9p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+arg="${1:-}"
+[[ -n "$arg" ]] || usage
+
+current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
+
+target_ws=1
+toggle_scratchpad=false
+
+case "$arg" in
+    up)
+        case "$current" in
+            a|b) ctx="a" ;;
+            c) ctx="b" ;;
+            d) ctx="c" ;;
+            e) ctx="d" ;;
+            *)   ctx="a" ;;
+        esac
+        ;;
+    down)
+        case "$current" in
+            a) ctx="b" ;;
+            b) ctx="c" ;;
+            c) ctx="d" ;;
+            d|e) ctx="e" ;;
+            *)   ctx="a" ;;
+        esac
+        ;;
+    [a-e])
+        ctx="$arg"
+        ;;
+    [a-e]-s)
+        ctx="${arg:0:1}"
+        toggle_scratchpad=true
+        ;;
+    [a-e]-[0-9]|[a-e]-10)
+        ctx="${arg:0:1}"
+        target_ws="${arg:2}"
+        if (( target_ws < 1 || target_ws > 10 )); then
+            notify-send -u critical "hyprwayspaces-switch" "workspace must be 1-10 (got: $target_ws)"
+            exit 1
+        fi
+        ;;
+    *)
+        notify-send -u critical "hyprwayspaces-switch" "Invalid argument: $arg"
+        exit 1
+        ;;
+esac
+
+mkdir -p "$(dirname "$STATE_FILE")"
+
+if [[ "$current" != "$ctx" ]]; then
+    # Hide current context: move each window in 1..10 → _current-N
+    hyprctl clients -j | jq -r --arg c "$current" '
+        .[]
+        | select(.workspace.name | test("^[0-9]+$"))
+        | "\(.address)\t_\($c)-\(.workspace.name)"
+    ' | while IFS=$'\t' read -r addr target; do
+        hyprctl dispatch movetoworkspacesilent "name:${target},address:${addr}" >/dev/null
+    done
+
+    # Show target context: move each window in _ctx-* → numeric
+    hyprctl clients -j | jq -r --arg c "$ctx" '
+        .[]
+        | select(.workspace.name | startswith("_\($c)-"))
+        | "\(.address)\t\(.workspace.name | sub("^_\($c)-"; ""))"
+    ' | while IFS=$'\t' read -r addr target; do
+        hyprctl dispatch movetoworkspacesilent "name:${target},address:${addr}" >/dev/null
+    done
+
+    echo -n "$ctx" > "$STATE_FILE"
+    pkill -SIGRTMIN+11 waybar 2>/dev/null || true
+fi
+
+hyprctl dispatch workspace "name:${target_ws}" >/dev/null
+
+if [[ "$toggle_scratchpad" == true ]]; then
+    hyprctl dispatch togglespecialworkspace "scratch-${ctx}" >/dev/null
+fi

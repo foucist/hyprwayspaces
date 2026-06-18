@@ -14,7 +14,7 @@ When making changes, do not introduce anything that requires waybar to reload it
 
 Workspaces are **always** named `1`–`10` for the active context. Hidden contexts' workspaces are named `_a-1`, `_b-2`, etc.
 
-`hyprwayspaces-switcher` swaps contexts by **moving windows** between workspaces (via `hyprctl dispatch movetoworkspacesilent`), not by renaming workspaces. Reason: `renameworkspace` events fire in waybar but waybar doesn't re-run its `ignore-workspaces` filter on rename — so a workspace admitted as `1` stays admitted after being renamed to `_a-1`. Moving windows means the new `_a-1` workspace is created fresh, hits the ignore filter at creation, and is hidden correctly.
+`hyprwayspaces-switch` swaps contexts by **moving windows** between workspaces (via `hyprctl dispatch movetoworkspacesilent`), not by renaming workspaces. Reason: `renameworkspace` events fire in waybar but waybar doesn't re-run its `ignore-workspaces` filter on rename — so a workspace admitted as `1` stays admitted after being renamed to `_a-1`. Moving windows means the new `_a-1` workspace is created fresh, hits the ignore filter at creation, and is hidden correctly.
 
 The `^_.*` `ignore-workspaces` regex hides all underscore-prefixed workspaces. The state file `generated/current-context` is updated and the `custom/workspace-context` waybar module gets a `SIGRTMIN+11` signal to re-exec immediately (the module polls the state file with `cat`).
 
@@ -32,7 +32,7 @@ Use `slot_to_bare` helper logic (present in `move`, `launch`, `swap`) to transla
 ```
 bin/                          atomic commands, symlinked into ~/.config/hypr/scripts/
 ├── hws                          short dispatcher; symlinked to ~/.local/bin/
-├── hyprwayspaces-switcher       up | down | a..e
+├── hyprwayspaces-switch       up | down | a..e
 ├── hyprwayspaces-move           <source> <dest>...   source = slot or class:/title: selector
 ├── hyprwayspaces-launch         [--if-empty] <slot>... -- <cmd>
 ├── hyprwayspaces-launch-terms   <dir-or-query> <count> [<ctx>]   bulk terminals with CWD

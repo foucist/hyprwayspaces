@@ -2,14 +2,14 @@
 # Short alias dispatcher: `hws <verb> [args...]` runs `hyprwayspaces-<verb>`.
 #
 # Verbs (anything matching a hyprwayspaces-* script on PATH or in this repo):
-#   switcher, move, launch, launch-terms, swap,
+#   switch, move, launch, launch-terms, swap,
 #   scratchpad-toggle, scratchpad-move
 
 if [[ $# -lt 1 ]]; then
     cat <<EOF >&2
 usage: hws <verb> [args...]
 
-Verbs: switcher, move, launch, launch-terms, swap,
+Verbs: switch, move, launch, launch-terms, swap,
        scratchpad-toggle, scratchpad-move
 EOF
     exit 1

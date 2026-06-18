@@ -72,7 +72,7 @@ for s in a-{1..4}; do hyprwayspaces-launch --if-empty $s -- alacritty; done
 
 ## Files
 
-- `bin/hyprwayspaces-switcher` — main switcher (`up`/`down`/letter `a`–`e`)
+- `bin/hyprwayspaces-switch` — main switcher (`up`/`down`/letter `a`–`e`)
 - `bin/hyprwayspaces-move` — move windows between slots
 - `bin/hyprwayspaces-launch` — spawn commands into slots
 - `bin/hyprwayspaces-scratchpad-toggle` / `-scratchpad-move` — bound to SUPER+S / SUPER ALT+S

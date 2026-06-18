@@ -23,7 +23,7 @@ link() {
     echo "link  $dst -> $src"
 }
 
-link "$REPO/bin/hyprwayspaces-switcher"            "$HOME/.config/hypr/scripts/hyprwayspaces-switcher"
+link "$REPO/bin/hyprwayspaces-switch"            "$HOME/.config/hypr/scripts/hyprwayspaces-switch"
 link "$REPO/bin/hyprwayspaces-scratchpad-toggle"   "$HOME/.config/hypr/scripts/hyprwayspaces-scratchpad-toggle"
 link "$REPO/bin/hyprwayspaces-scratchpad-move"     "$HOME/.config/hypr/scripts/hyprwayspaces-scratchpad-move"
 link "$REPO/bin/hyprwayspaces-move"                "$HOME/.config/hypr/scripts/hyprwayspaces-move"
@@ -46,7 +46,7 @@ Done. To finish setup, add this line to ~/.config/hypr/hyprland.conf:
 
 Optional, in ~/.config/hypr/autostart.conf:
 
-    exec-once = ~/.config/hypr/scripts/hyprwayspaces-switcher a
+    exec-once = ~/.config/hypr/scripts/hyprwayspaces-switch a
 
 Then reload hyprland and restart waybar once:
 
