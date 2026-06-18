@@ -88,12 +88,18 @@ Several hyprland settings interact materially with how context switching looks a
 - **`input:follow_mouse = 1` / `input:mouse_refocus = false`** — recommended; standard focus-follows-mouse without re-asserting focus on every motion.
 - **`binds:workspace_center_on = 1`** — keeps focus on the visually-centered window when entering a workspace.
 
-## Touchpad gestures
+## Touchpad gestures (optional, Hyprland 0.54+)
 
-3-finger swipes are wired in `hypr/hyprwayspaces-keys.conf` via hyprland 0.54's `gesture` directive with the `dispatcher` action (NOT `bindgesture`, NOT `gesture = ... exec ...` — only `gesture = N, DIR, dispatcher, DISPATCHER, ARGS`):
+Lives in its own file `hypr/hyprwayspaces-gestures.conf` so users on older hyprland (or who don't want touchpad gestures) can skip it. It's sourced separately from hyprland.conf via:
+
+    source = ~/.config/hypr/hyprwayspaces-gestures.conf
+
+Syntax is hyprland 0.54's `gesture` directive with the `dispatcher` action keyword (NOT `bindgesture`, NOT `gesture = ... exec ...` directly — only `gesture = N, DIR, dispatcher, DISPATCHER, ARGS`):
 
 - up / down → `hyprwayspaces-switch up` / `down`
 - left / right → `hyprwayspaces-switch left` / `right` (clamps at 1..10)
+
+If a future hyprland version breaks this syntax again, just delete this file or update its directives. The core `hyprwayspaces-keys.conf` doesn't depend on gestures at all.
 
 ## Special workspaces (scratchpads)
 

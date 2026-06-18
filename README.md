@@ -29,6 +29,15 @@ Add the one printed source line to `~/.config/hypr/hyprland.conf`, then reload.
 - `SUPER ALT S` — move window to scratchpad
 - `SUPER ALT UP/DOWN` — cycle contexts (capped at `a`/`e`, no wrap)
 
+### Optional: 3-finger touchpad gestures (Hyprland 0.54+ only)
+
+Source `~/.config/hypr/hyprwayspaces-gestures.conf` from `hyprland.conf` to enable:
+
+- 3-finger vertical swipe → cycle contexts
+- 3-finger horizontal swipe → step workspace within current context (clamps at 1 and 10)
+
+The gesture syntax uses the `dispatcher` action keyword introduced in 0.54 — older versions won't accept it. If your reload fails, just don't source the file. The keybind features above don't depend on it.
+
 ## How it works
 
 Workspaces are always named `1`–`10`. The switcher does two passes of `hyprctl dispatch renameworkspace`:
@@ -77,6 +86,8 @@ for s in a-{1..4}; do hyprwayspaces-launch --if-empty $s -- alacritty; done
 - `bin/hyprwayspaces-launch` — spawn commands into slots
 - `bin/hyprwayspaces-scratchpad-toggle` / `-scratchpad-move` — bound to SUPER+S / SUPER ALT+S
 - `hypr/hyprwayspaces-keys.conf` — static keybinds (sourced from hyprland.conf)
+- `hypr/hyprwayspaces-gestures.conf` — optional 3-finger gesture bindings; Hyprland 0.54+ only
+- `hypr/looknfeel.example.conf` — reference for hyprland options hyprwayspaces benefits from (master/cursor/etc.)
 - `templates/waybar.config.jsonc` — static waybar config (symlinked into ~/.config/waybar/)
 - `generated/current-context` — single-letter state file
 - `install.sh` — creates the symlinks

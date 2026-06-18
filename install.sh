@@ -33,6 +33,7 @@ link "$REPO/bin/hyprwayspaces-launch-terms"        "$HOME/.config/hypr/scripts/h
 link "$REPO/bin/hyprwayspaces-load-tabs"           "$HOME/.config/hypr/scripts/hyprwayspaces-load-tabs"
 link "$REPO/bin/hws"                               "$HOME/.local/bin/hws"
 link "$REPO/hypr/hyprwayspaces-keys.conf"          "$HOME/.config/hypr/hyprwayspaces-keys.conf"
+link "$REPO/hypr/hyprwayspaces-gestures.conf"      "$HOME/.config/hypr/hyprwayspaces-gestures.conf"
 link "$REPO/templates/waybar.config.jsonc"         "$HOME/.config/waybar/config.jsonc"
 
 [[ -f "$REPO/generated/current-context" ]] || echo -n "a" > "$REPO/generated/current-context"
@@ -53,6 +54,11 @@ Done. To finish setup:
 1. Add this line to ~/.config/hypr/hyprland.conf (after bindings.conf):
 
        source = ~/.config/hypr/hyprwayspaces-keys.conf
+
+   Optional, if you're on Hyprland >= 0.54 and want 3-finger touchpad gestures
+   (vertical = cycle contexts, horizontal = step workspace within context):
+
+       source = ~/.config/hypr/hyprwayspaces-gestures.conf
 
    Optional, in ~/.config/hypr/autostart.conf:
 
