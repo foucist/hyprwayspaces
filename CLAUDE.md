@@ -79,6 +79,22 @@ The `.urls` file is one URL per line; `hyprwayspaces-load-tabs <project> <slot>`
 
 For permanent Firefox use the extension needs to be signed (Developer Edition / Nightly / AMO unlisted signing). Loading via about:debugging "Load Temporary Add-on" works per-session for testing.
 
+## Hyprland config requirements
+
+Several hyprland settings interact materially with how context switching looks and feels. A reference `hypr/looknfeel.example.conf` is committed; merge the bits you care about into `~/.config/hypr/looknfeel.conf`.
+
+- **`master:new_status = slave`** — *required*. With the default `master`, every `movetoworkspacesilent` makes the moved window the new master, which inverts master/slave on each restore (terminals visibly swap). With `slave`, the first moved window stays master and subsequent moves slot in below it. The switcher sorts clients by `(y, x)` ascending and moves master first to take advantage of this.
+- **`cursor:warp_on_change_workspace = 1`** — recommended. Cursor jumps to the focused window on workspace change, so focus-follow-mouse doesn't snatch focus onto a sibling under the pointer.
+- **`input:follow_mouse = 1` / `input:mouse_refocus = false`** — recommended; standard focus-follows-mouse without re-asserting focus on every motion.
+- **`binds:workspace_center_on = 1`** — keeps focus on the visually-centered window when entering a workspace.
+
+## Touchpad gestures
+
+3-finger swipes are wired in `hypr/hyprwayspaces-keys.conf` via hyprland 0.54's `gesture` directive with the `dispatcher` action (NOT `bindgesture`, NOT `gesture = ... exec ...` — only `gesture = N, DIR, dispatcher, DISPATCHER, ARGS`):
+
+- up / down → `hyprwayspaces-switch up` / `down`
+- left / right → `hyprwayspaces-switch left` / `right` (clamps at 1..10)
+
 ## Special workspaces (scratchpads)
 
 `renameworkspace` does NOT work on special workspaces in Hyprland — verified empirically; the dispatcher returns ok but does nothing useful. Per-context scratchpads are kept alive as separate `special:scratch-a`, `special:scratch-b`, etc. The `SUPER+S` keybind exec's `hyprwayspaces-scratchpad-toggle` which reads the state file and toggles the right one.

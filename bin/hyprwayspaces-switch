@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Switch the active context, optionally landing on a specific workspace
-# or opening the scratchpad.
+# Switch the active context, step within the current workspace row,
+# or open the scratchpad.
 #
 # Usage:
-#   hyprwayspaces-switch up | down              cycle (capped at a / e)
+#   hyprwayspaces-switch up | down              cycle contexts (capped at a / e)
+#   hyprwayspaces-switch left | right           step workspace -1 / +1 (clamped 1..10)
 #   hyprwayspaces-switch <a-e>                  switch to context, land on workspace 1
 #   hyprwayspaces-switch <a-e>-<1..10>          switch and land on a specific workspace
 #   hyprwayspaces-switch <a-e>-s                switch and toggle the scratchpad
@@ -13,7 +14,7 @@ REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 STATE_FILE="$REPO_ROOT/generated/current-context"
 
 usage() {
-    sed -n '2,9p' "$0" | sed 's/^# \?//'
+    sed -n '2,10p' "$0" | sed 's/^# \?//'
     exit "${1:-1}"
 }
 
@@ -22,7 +23,15 @@ arg="${1:-}"
 
 current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
 
-target_ws=1
+# Default landing workspace: keep the user on their current numeric workspace
+# when cycling contexts. Falls back to 1 when active workspace isn't numeric
+# (e.g. they're sitting on a scratchpad).
+active_ws=$(hyprctl activeworkspace -j | jq -r '.name')
+if [[ "$active_ws" =~ ^[0-9]+$ ]]; then
+    target_ws="$active_ws"
+else
+    target_ws=1
+fi
 toggle_scratchpad=false
 
 case "$arg" in
@@ -43,6 +52,20 @@ case "$arg" in
             d|e) ctx="e" ;;
             *)   ctx="a" ;;
         esac
+        ;;
+    left|right)
+        # Step workspace within the current context. Clamp at 1..10. Skip when
+        # not on a numeric (context-owned) workspace.
+        active=$(hyprctl activeworkspace -j | jq -r '.name')
+        [[ "$active" =~ ^[0-9]+$ ]] || exit 0
+        if [[ "$arg" == "right" ]]; then
+            (( active < 10 )) || exit 0
+            hyprctl dispatch workspace "name:$((active + 1))" >/dev/null
+        else
+            (( active > 1 )) || exit 0
+            hyprctl dispatch workspace "name:$((active - 1))" >/dev/null
+        fi
+        exit 0
         ;;
     [a-e])
         ctx="$arg"
@@ -68,23 +91,25 @@ esac
 mkdir -p "$(dirname "$STATE_FILE")"
 
 if [[ "$current" != "$ctx" ]]; then
-    # Hide current context: move each window in 1..10 → _current-N
-    hyprctl clients -j | jq -r --arg c "$current" '
-        .[]
-        | select(.workspace.name | test("^[0-9]+$"))
-        | "\(.address)\t_\($c)-\(.workspace.name)"
-    ' | while IFS=$'\t' read -r addr target; do
-        hyprctl dispatch movetoworkspacesilent "name:${target},address:${addr}" >/dev/null
-    done
+    # Build a single hyprctl --batch command for ALL the moves (hide current +
+    # show target). With master:new_status=slave the master window must be
+    # moved first (top-left in position order), so sort ascending by (y, x).
+    # One IPC round-trip = much less visible relayout jank than N moves.
+    clients_json=$(hyprctl clients -j)
+    batch=$(jq -r --arg cur "$current" --arg new "$ctx" '
+        (
+            [.[] | select(.workspace.name | test("^[0-9]+$"))]
+            | sort_by([.at[1], .at[0]])
+            | map("dispatch movetoworkspacesilent name:_\($cur)-\(.workspace.name),address:\(.address)")
+        ) + (
+            [.[] | select(.workspace.name | startswith("_\($new)-"))]
+            | sort_by([.at[1], .at[0]])
+            | map("dispatch movetoworkspacesilent name:\(.workspace.name | sub("^_\($new)-"; "")),address:\(.address)")
+        )
+        | join(" ; ")
+    ' <<<"$clients_json")
 
-    # Show target context: move each window in _ctx-* → numeric
-    hyprctl clients -j | jq -r --arg c "$ctx" '
-        .[]
-        | select(.workspace.name | startswith("_\($c)-"))
-        | "\(.address)\t\(.workspace.name | sub("^_\($c)-"; ""))"
-    ' | while IFS=$'\t' read -r addr target; do
-        hyprctl dispatch movetoworkspacesilent "name:${target},address:${addr}" >/dev/null
-    done
+    [[ -n "$batch" ]] && hyprctl --batch "$batch" >/dev/null
 
     echo -n "$ctx" > "$STATE_FILE"
     pkill -SIGRTMIN+11 waybar 2>/dev/null || true
