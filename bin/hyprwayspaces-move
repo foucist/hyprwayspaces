@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# Move windows from a source to one or more destination slots.
+#
+# Usage: hyprwayspaces-move <source> <dest> [<dest>...]
+#
+# <source> is one of:
+#   slot:        a-1 .. e-10, or a-s .. e-s (scratchpads)
+#   selector:    class:<regex>, title:<regex>, initialClass:<regex>
+#
+# <dest>... is one or more slots (same syntax). If more than one, source
+# windows are distributed round-robin across them.
+#
+# Examples:
+#   hyprwayspaces-move a-3 b-3                      # slot → slot
+#   hyprwayspaces-move class:firefox {a,b,c}-s      # all firefox windows → 3 scratchpads
+#   hyprwayspaces-move title:lazydocker c-2         # single window claim by title
+#
+# Works regardless of which context is currently active.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+
+usage() {
+    sed -n '2,17p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+[[ $# -ge 2 ]] || usage
+
+current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
+
+# Returns: bare workspace name on stdout.
+slot_to_bare() {
+    local spec="$1"
+    if [[ ! "$spec" =~ ^([a-e])-([0-9]+|s)$ ]]; then
+        return 2  # not a slot
+    fi
+    local letter="${BASH_REMATCH[1]}"
+    local part="${BASH_REMATCH[2]}"
+    if [[ "$part" == "s" ]]; then
+        echo "special:scratch-${letter}"
+        return 0
+    fi
+    if (( part < 1 || part > 10 )); then
+        echo "invalid workspace number in $spec" >&2
+        return 1
+    fi
+    if [[ "$letter" == "$current" ]]; then
+        echo "$part"
+    else
+        echo "_${letter}-${part}"
+    fi
+}
+
+# Convert a slot to the form movetoworkspacesilent expects.
+dispatch_form() {
+    local bare="$1"
+    if [[ "$bare" == special:* ]]; then
+        echo "$bare"
+    else
+        echo "name:${bare}"
+    fi
+}
+
+# Resolve all destinations
+src="$1"; shift
+dest_dispatches=()
+for d in "$@"; do
+    if bare=$(slot_to_bare "$d"); then
+        dest_dispatches+=("$(dispatch_form "$bare")")
+    else
+        echo "invalid destination slot: $d" >&2
+        exit 1
+    fi
+done
+
+# Resolve source → list of window addresses
+addresses=()
+if bare_src=$(slot_to_bare "$src" 2>/dev/null); then
+    # Source is a slot
+    mapfile -t addresses < <(hyprctl clients -j | jq -r --arg ws "$bare_src" '.[] | select(.workspace.name == $ws) | .address')
+elif [[ "$src" =~ ^([a-zA-Z]+):(.+)$ ]]; then
+    # Source is a selector
+    field="${BASH_REMATCH[1]}"
+    pattern="${BASH_REMATCH[2]}"
+    case "$field" in
+        class|title|initialClass|initialTitle) ;;
+        *)
+            echo "unknown selector field: $field (expected class|title|initialClass|initialTitle)" >&2
+            exit 1
+            ;;
+    esac
+    mapfile -t addresses < <(hyprctl clients -j | jq -r --arg field "$field" --arg pat "$pattern" '.[] | select(.[$field] | test($pat)) | .address')
+else
+    echo "invalid source: $src" >&2
+    exit 1
+fi
+
+if (( ${#addresses[@]} == 0 )); then
+    notify-send -u low "hyprwayspaces-move" "No windows matched source: $src"
+    exit 0
+fi
+
+i=0
+for addr in "${addresses[@]}"; do
+    dispatch="${dest_dispatches[$(( i % ${#dest_dispatches[@]} ))]}"
+    hyprctl dispatch movetoworkspacesilent "${dispatch},address:${addr}" >/dev/null
+    i=$((i + 1))
+done
+
+if (( $# > 1 )); then
+    notify-send -u low "hyprwayspaces" "Moved ${#addresses[@]} window(s): $src → $* (round-robin)"
+else
+    notify-send -u low "hyprwayspaces" "Moved ${#addresses[@]} window(s): $src → $1"
+fi

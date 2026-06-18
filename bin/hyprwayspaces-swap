@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Swap the contents of two slots.
+#
+# Usage: hyprwayspaces-swap <slot-a> <slot-b>
+#
+# Examples:
+#   hyprwayspaces-swap a-s b-s        swap the scratchpad contents of contexts a and b
+#   hyprwayspaces-swap a-1 a-2        swap workspaces 1 and 2 within the same context
+#   hyprwayspaces-swap a-3 c-1        cross-context swap
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+
+usage() {
+    sed -n '2,9p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+[[ $# -eq 2 ]] || usage
+
+current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
+
+slot_to_bare() {
+    local spec="$1"
+    if [[ ! "$spec" =~ ^([a-e])-([0-9]+|s)$ ]]; then
+        echo "invalid slot: $spec" >&2
+        return 1
+    fi
+    local letter="${BASH_REMATCH[1]}"
+    local part="${BASH_REMATCH[2]}"
+    if [[ "$part" == "s" ]]; then
+        echo "special:scratch-${letter}"
+        return 0
+    fi
+    if (( part < 1 || part > 10 )); then
+        echo "invalid workspace number: $part" >&2
+        return 1
+    fi
+    if [[ "$letter" == "$current" ]]; then
+        echo "$part"
+    else
+        echo "_${letter}-${part}"
+    fi
+}
+
+dispatch_form() {
+    local bare="$1"
+    if [[ "$bare" == special:* ]]; then
+        echo "$bare"
+    else
+        echo "name:${bare}"
+    fi
+}
+
+a_bare=$(slot_to_bare "$1") || exit 1
+b_bare=$(slot_to_bare "$2") || exit 1
+
+if [[ "$a_bare" == "$b_bare" ]]; then
+    notify-send -u low "hyprwayspaces-swap" "Slots resolve to the same workspace ($a_bare)"
+    exit 0
+fi
+
+a_dispatch=$(dispatch_form "$a_bare")
+b_dispatch=$(dispatch_form "$b_bare")
+
+# Snapshot both sides BEFORE any moves — addresses stay valid regardless of moves.
+mapfile -t addrs_a < <(hyprctl clients -j | jq -r --arg ws "$a_bare" '.[] | select(.workspace.name == $ws) | .address')
+mapfile -t addrs_b < <(hyprctl clients -j | jq -r --arg ws "$b_bare" '.[] | select(.workspace.name == $ws) | .address')
+
+for addr in "${addrs_a[@]}"; do
+    [[ -z "$addr" ]] && continue
+    hyprctl dispatch movetoworkspacesilent "${b_dispatch},address:${addr}" >/dev/null
+done
+
+for addr in "${addrs_b[@]}"; do
+    [[ -z "$addr" ]] && continue
+    hyprctl dispatch movetoworkspacesilent "${a_dispatch},address:${addr}" >/dev/null
+done
+
+notify-send -u low "hyprwayspaces" "Swapped: $1 (${#addrs_a[@]}) ↔ $2 (${#addrs_b[@]})"

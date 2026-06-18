@@ -1,0 +1,22 @@
+# Workspace presets — apps to auto-launch per context/workspace
+# Status: NOT YET IMPLEMENTED. Sketch only.
+
+# Applied to every context unless overridden
+shared:
+  scratchpad:
+    - exec: firefox
+      claim: existing   # if Firefox windows already exist from session restore, claim them
+  workspaces:
+    1:
+      exec: alacritty
+      cwd: ~
+
+# Per-context overrides (merged onto shared)
+contexts:
+  a:
+    workspaces:
+      1: { exec: alacritty, cwd: ~/projects/foo }
+      3: { exec: alacritty, cwd: ~/work }
+  b:
+    workspaces:
+      1: { exec: alacritty, cwd: ~/notes }

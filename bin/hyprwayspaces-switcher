@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+
+arg="${1:-a}"
+current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
+
+case "$arg" in
+    up)
+        case "$current" in
+            a|b) ctx="a" ;;
+            c) ctx="b" ;;
+            d) ctx="c" ;;
+            e) ctx="d" ;;
+            *) ctx="a" ;;
+        esac
+        ;;
+    down)
+        case "$current" in
+            a) ctx="b" ;;
+            b) ctx="c" ;;
+            c) ctx="d" ;;
+            d|e) ctx="e" ;;
+            *) ctx="a" ;;
+        esac
+        ;;
+    [a-e])
+        ctx="$arg"
+        ;;
+    *)
+        notify-send -u critical "hyprwayspaces" "Invalid context: $arg"
+        exit 1
+        ;;
+esac
+
+mkdir -p "$(dirname "$STATE_FILE")"
+
+if [[ "$current" == "$ctx" ]]; then
+    hyprctl dispatch workspace "name:1" >/dev/null
+    exit 0
+fi
+
+# Hide current context: move each window in 1..10 → _current-N
+hyprctl clients -j | jq -r --arg c "$current" '
+    .[]
+    | select(.workspace.name | test("^[0-9]+$"))
+    | "\(.address)\t_\($c)-\(.workspace.name)"
+' | while IFS=$'\t' read -r addr target; do
+    hyprctl dispatch movetoworkspacesilent "name:${target},address:${addr}" >/dev/null
+done
+
+# Show target context: move each window in _ctx-* → numeric
+hyprctl clients -j | jq -r --arg c "$ctx" '
+    .[]
+    | select(.workspace.name | startswith("_\($c)-"))
+    | "\(.address)\t\(.workspace.name | sub("^_\($c)-"; ""))"
+' | while IFS=$'\t' read -r addr target; do
+    hyprctl dispatch movetoworkspacesilent "name:${target},address:${addr}" >/dev/null
+done
+
+echo -n "$ctx" > "$STATE_FILE"
+pkill -SIGRTMIN+11 waybar 2>/dev/null || true
+hyprctl dispatch workspace "name:1" >/dev/null

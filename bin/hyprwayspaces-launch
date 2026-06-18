@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Launch a command into one or more hyprwayspaces slots.
+#
+# Usage:
+#   hyprwayspaces-launch [--if-empty] [--wait=Ns] <slot> [<slot>...] -- <command> [<args>...]
+#
+# 1 slot:  spawn the command and let its windows open in that slot.
+#          --if-empty skips spawning if the slot already has any window.
+# N slots: spawn the command once, wait --wait seconds (default 3), and
+#          distribute the newly-opened windows round-robin across the slots.
+#
+# Slot syntax matches hyprwayspaces-move: a-1..a-10, a-s, etc.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+
+usage() {
+    sed -n '2,14p' "$0" | sed 's/^# \?//'
+    exit "${1:-1}"
+}
+
+if_empty=false
+wait_seconds=8
+slots=()
+cmd=()
+mode="slots"
+
+for arg in "$@"; do
+    if [[ "$mode" == "cmd" ]]; then
+        cmd+=("$arg")
+        continue
+    fi
+    case "$arg" in
+        --if-empty)  if_empty=true ;;
+        --wait=*)    wait_seconds="${arg#--wait=}" ;;
+        --)          mode="cmd" ;;
+        -h|--help)   usage 0 ;;
+        *)           slots+=("$arg") ;;
+    esac
+done
+
+[[ ${#slots[@]} -ge 1 && ${#cmd[@]} -ge 1 ]] || usage
+
+current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
+
+# Convert a slot spec to (bare_name, dispatch_form).
+# Outputs: "bare\tdispatch" on stdout.
+resolve_slot() {
+    local spec="$1"
+    if [[ ! "$spec" =~ ^([a-e])-([0-9]+|s)$ ]]; then
+        echo "invalid slot: $spec" >&2
+        return 1
+    fi
+    local letter="${BASH_REMATCH[1]}"
+    local part="${BASH_REMATCH[2]}"
+    local bare
+    if [[ "$part" == "s" ]]; then
+        bare="special:scratch-${letter}"
+        printf '%s\t%s\n' "$bare" "$bare"
+        return
+    fi
+    if (( part < 1 || part > 10 )); then
+        echo "invalid workspace number in $spec" >&2
+        return 1
+    fi
+    if [[ "$letter" == "$current" ]]; then
+        bare="$part"
+    else
+        bare="_${letter}-${part}"
+    fi
+    printf '%s\t%s\n' "$bare" "name:${bare}"
+}
+
+bares=()
+dispatches=()
+for s in "${slots[@]}"; do
+    IFS=$'\t' read -r bare dispatch < <(resolve_slot "$s") || exit 1
+    bares+=("$bare")
+    dispatches+=("$dispatch")
+done
+
+if (( ${#slots[@]} == 1 )); then
+    if [[ "$if_empty" == true ]]; then
+        ws="${bares[0]}"
+        if hyprctl clients -j | jq -e --arg ws "$ws" '.[] | select(.workspace.name == $ws)' >/dev/null; then
+            exit 0
+        fi
+    fi
+    hyprctl dispatch exec "[workspace ${dispatches[0]} silent] ${cmd[*]}" >/dev/null
+    exit 0
+fi
+
+# Multi-slot: snapshot existing windows, spawn, then poll for new ones and
+# distribute them round-robin as they appear. Stops on hard deadline or
+# after `quiescent_seconds` have passed since the last new window.
+quiescent_seconds=2
+
+declare -A seen
+while read -r addr; do
+    seen[$addr]=1
+done < <(hyprctl clients -j | jq -r '.[].address')
+
+setsid -f "${cmd[@]}" >/dev/null 2>&1
+
+deadline=$(( $(date +%s) + wait_seconds ))
+last_new=$(date +%s)
+moved=0
+i=0
+
+while (( $(date +%s) < deadline )); do
+    while read -r addr; do
+        [[ -z "$addr" ]] && continue
+        if [[ -z "${seen[$addr]:-}" ]]; then
+            seen[$addr]=1
+            dispatch="${dispatches[$(( i % ${#dispatches[@]} ))]}"
+            hyprctl dispatch movetoworkspacesilent "${dispatch},address:${addr}" >/dev/null
+            i=$((i + 1))
+            moved=$((moved + 1))
+            last_new=$(date +%s)
+        fi
+    done < <(hyprctl clients -j | jq -r '.[].address')
+
+    if (( moved > 0 && $(date +%s) - last_new >= quiescent_seconds )); then
+        break
+    fi
+    sleep 0.4
+done
+
+if (( moved == 0 )); then
+    notify-send -u low "hyprwayspaces-launch" "No new windows appeared from: ${cmd[*]}"
+    exit 0
+fi
+
+notify-send -u low "hyprwayspaces" "Launched ${cmd[0]}: $moved window(s) → ${#slots[@]} slot(s)"
