@@ -32,6 +32,7 @@ link "$REPO/bin/hyprwayspaces-swap"                "$HOME/.config/hypr/scripts/h
 link "$REPO/bin/hyprwayspaces-launch-terms"        "$HOME/.config/hypr/scripts/hyprwayspaces-launch-terms"
 link "$REPO/project-state/browser/hyprwayspaces-load-tabs"       "$HOME/.config/hypr/scripts/hyprwayspaces-load-tabs"
 link "$REPO/bin/hyprwayspaces-state"               "$HOME/.config/hypr/scripts/hyprwayspaces-state"
+link "$REPO/bin/hyprwayspaces-name"                "$HOME/.config/hypr/scripts/hyprwayspaces-name"
 link "$REPO/bin/hws"                               "$HOME/.local/bin/hws"
 link "$REPO/hypr/hyprwayspaces-keys.conf"          "$HOME/.config/hypr/hyprwayspaces-keys.conf"
 link "$REPO/hypr/hyprwayspaces-gestures.conf"      "$HOME/.config/hypr/hyprwayspaces-gestures.conf"

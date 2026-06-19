@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Set or show the display name of a context. Used by the waybar
+# custom/workspace-context module to show "fluency" instead of "a".
+#
+# Usage:
+#   hyprwayspaces-name                  show the current context's display name
+#                                       (falls back to the bare letter if unset)
+#   hyprwayspaces-name <name>           set the current context's display name
+#   hyprwayspaces-name <ctx> <name>     set a specific context's name
+#   hyprwayspaces-name -                clear the current context's name
+#   hyprwayspaces-name <ctx> -          clear a specific context's name
+#
+# Internally the context letter (a..e) is unchanged — this only affects
+# the waybar indicator and `hyprwayspaces-name` output.
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+STATE_FILE="$REPO_ROOT/generated/current-context"
+NAMES_FILE="$REPO_ROOT/generated/context-names.json"
+
+current_ctx() {
+    cat "$STATE_FILE" 2>/dev/null || echo "a"
+}
+
+ensure_names_file() {
+    [[ -f "$NAMES_FILE" ]] || echo '{}' > "$NAMES_FILE"
+}
+
+lookup() {
+    local ctx="$1"
+    if [[ -f "$NAMES_FILE" ]]; then
+        jq -r --arg c "$ctx" '.[$c] // ""' "$NAMES_FILE" 2>/dev/null
+    fi
+}
+
+resolve() {
+    # Print the display name for a context: name if set, letter otherwise.
+    local ctx="$1"
+    local name
+    name=$(lookup "$ctx")
+    [[ -n "$name" ]] && echo "$name" || echo "$ctx"
+}
+
+set_name() {
+    local ctx="$1" name="$2"
+    ensure_names_file
+    local tmp="$NAMES_FILE.tmp"
+    jq --arg c "$ctx" --arg n "$name" '.[$c] = $n' "$NAMES_FILE" > "$tmp"
+    mv "$tmp" "$NAMES_FILE"
+}
+
+clear_name() {
+    local ctx="$1"
+    [[ -f "$NAMES_FILE" ]] || return 0
+    local tmp="$NAMES_FILE.tmp"
+    jq --arg c "$ctx" 'del(.[$c])' "$NAMES_FILE" > "$tmp"
+    mv "$tmp" "$NAMES_FILE"
+}
+
+refresh_waybar() {
+    pkill -SIGRTMIN+11 waybar 2>/dev/null || true
+}
+
+case $# in
+    0)
+        # Show
+        resolve "$(current_ctx)"
+        ;;
+    1)
+        case "$1" in
+            -h|--help) sed -n '2,15p' "$0" | sed 's/^# \?//'; exit 0 ;;
+            -)
+                clear_name "$(current_ctx)"
+                refresh_waybar
+                ;;
+            *)
+                set_name "$(current_ctx)" "$1"
+                refresh_waybar
+                ;;
+        esac
+        ;;
+    2)
+        ctx="$1"; arg="$2"
+        if [[ ! "$ctx" =~ ^[a-e]$ ]]; then
+            echo "context must be a letter a..e (got: $ctx)" >&2
+            exit 1
+        fi
+        if [[ "$arg" == "-" ]]; then
+            clear_name "$ctx"
+        else
+            set_name "$ctx" "$arg"
+        fi
+        refresh_waybar
+        ;;
+    *)
+        sed -n '2,15p' "$0" | sed 's/^# \?//'
+        exit 1
+        ;;
+esac
