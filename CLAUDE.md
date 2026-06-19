@@ -4,6 +4,26 @@
 
 A project-context overlay on top of Hyprland + Waybar. Each context (`a` through `e`) owns 10 workspaces and 1 scratchpad. Switching contexts swaps which workspaces are visible. Designed for Omarchy but should work with vanilla Hyprland.
 
+## Persistent-workspaces invariant: ALWAYS KEEP
+
+`templates/waybar.config.jsonc` MUST contain the `persistent-workspaces` block for `hyprland/workspaces`. Do not remove it. The user has flagged this as non-negotiable.
+
+Why it can look broken: when waybar (re)starts or freshly re-evaluates its persistent-workspaces config, it creates placeholder workspaces keyed by parsed-int IDs (positive) while our named workspaces (from the rename-on-context-switch model) have negative IDs. Waybar shows both — visible duplicates like `1 2 3 4 5 1`. This is a transient state, not a config bug.
+
+**Fix is always `hyprctl reload` immediately after the waybar action.** That re-emits workspace events and waybar reconciles the placeholders with the actual named workspaces.
+
+The rule is universal: **ANY action that affects waybar must be followed by `hyprctl reload`.** This is not specific to the `omarchy-restart-waybar` command — it applies to:
+
+- `omarchy-restart-waybar`
+- `killall waybar && waybar &` (or any kill+relaunch)
+- `pkill -SIGUSR2 waybar` (full config reload signal)
+- `pkill -SIGRTMIN+N waybar` (module-refresh signals, e.g. SIGRTMIN+11 used by our workspace-context module)
+- Any other future mechanism
+
+Treat the waybar action and `hyprctl reload` as a single atomic pair. The two `pkill -SIGRTMIN+11 waybar` call sites in this repo (`hyprwayspaces-switch`, `hyprwayspaces-name`) both follow the pkill immediately with `hyprctl reload`. New scripts that touch waybar must do the same.
+
+If you ever feel tempted to drop persistent-workspaces to "fix" the duplicates, don't.
+
 ## Core invariant: waybar config is static
 
 The waybar config (`templates/waybar.config.jsonc`) **never changes after install**. Context switching does not regenerate it, does not signal it, does not restart waybar. Every previous attempt at "reload waybar on switch" caused visible flicker (layer-surface release + window resize). The current design avoids this entirely.

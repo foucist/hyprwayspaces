@@ -117,6 +117,7 @@ if [[ "$current" != "$ctx" ]]; then
 
     echo -n "$ctx" > "$STATE_FILE"
     pkill -SIGRTMIN+11 waybar 2>/dev/null || true
+    hyprctl reload >/dev/null
 fi
 
 hyprctl dispatch workspace "name:${target_ws}" >/dev/null

@@ -59,6 +59,7 @@ clear_name() {
 
 refresh_waybar() {
     pkill -SIGRTMIN+11 waybar 2>/dev/null || true
+    hyprctl reload >/dev/null
 }
 
 case $# in

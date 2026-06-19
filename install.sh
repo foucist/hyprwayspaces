@@ -66,9 +66,11 @@ Done. To finish setup:
 
        exec-once = ~/.config/hypr/scripts/hyprwayspaces-switch a
 
-   Then reload hyprland and restart waybar once:
+   Then restart waybar. ANY waybar restart (omarchy-restart-waybar, killall +
+   waybar &, pkill, etc.) must be followed by `hyprctl reload` to reconcile
+   persistent-workspaces placeholders with the actual named workspaces:
 
-       hyprctl reload && omarchy-restart-waybar
+       omarchy-restart-waybar && hyprctl reload
 
 2. Load the Firefox tab-saver extension (one-time, lasts for the Firefox session;
    for permanent use you need Developer Edition / Nightly, or self-sign via AMO):
