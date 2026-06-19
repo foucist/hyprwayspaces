@@ -4,10 +4,13 @@
 # Usage:
 #   hyprwayspaces-launch [--if-empty] [--wait=Ns] <slot> [<slot>...] -- <command> [<args>...]
 #
-# 1 slot:  spawn the command and let its windows open in that slot.
-#          --if-empty skips spawning if the slot already has any window.
-# N slots: spawn the command once, wait --wait seconds (default 3), and
-#          distribute the newly-opened windows round-robin across the slots.
+# Snapshots existing window addresses, spawns the command, then moves each new
+# window to a slot round-robin as it appears. Works whether the app is being
+# started fresh or is already running (e.g. firefox IPC into an existing
+# process — the new window still gets moved to the target slot).
+#
+# --if-empty (only meaningful with a single slot) skips the spawn entirely if
+# the slot already contains any window.
 #
 # Slot syntax matches hyprwayspaces-move: a-1..a-10, a-s, etc.
 set -euo pipefail
@@ -16,7 +19,7 @@ REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 STATE_FILE="$REPO_ROOT/generated/current-context"
 
 usage() {
-    sed -n '2,14p' "$0" | sed 's/^# \?//'
+    sed -n '2,15p' "$0" | sed 's/^# \?//'
     exit "${1:-1}"
 }
 
@@ -80,20 +83,18 @@ for s in "${slots[@]}"; do
     dispatches+=("$dispatch")
 done
 
-if (( ${#slots[@]} == 1 )); then
-    if [[ "$if_empty" == true ]]; then
-        ws="${bares[0]}"
-        if hyprctl clients -j | jq -e --arg ws "$ws" '.[] | select(.workspace.name == $ws)' >/dev/null; then
-            exit 0
-        fi
+if [[ "$if_empty" == true && ${#slots[@]} -eq 1 ]]; then
+    ws="${bares[0]}"
+    if hyprctl clients -j | jq -e --arg ws "$ws" '.[] | select(.workspace.name == $ws)' >/dev/null; then
+        exit 0
     fi
-    hyprctl dispatch exec "[workspace ${dispatches[0]} silent] ${cmd[*]}" >/dev/null
-    exit 0
 fi
 
-# Multi-slot: snapshot existing windows, spawn, then poll for new ones and
-# distribute them round-robin as they appear. Stops on hard deadline or
-# after `quiescent_seconds` have passed since the last new window.
+# Snapshot existing windows, spawn, then poll for new ones and distribute them
+# round-robin as they appear. Stops on hard deadline or after
+# `quiescent_seconds` have passed since the last new window. Works for both
+# fresh-spawn apps (rule fires on the spawned process) and IPC-into-running
+# apps (rule misses, but the move-after-spawn still catches the new window).
 quiescent_seconds=2
 
 declare -A seen
