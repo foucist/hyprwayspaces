@@ -2,7 +2,7 @@
 
 Project-context workspaces for Hyprland + Waybar with **zero waybar reloads** on context switch.
 
-Each context (`a` through `e`) owns 10 workspaces and 1 scratchpad. Switching contexts hides the current set and reveals the target set via `hyprctl renameworkspace` — waybar's config never changes, so there's no flicker.
+Each context (`a` through `e`) owns 10 workspaces and 1 scratchpad. Switching contexts hides the current set and reveals the target set without reloading Waybar, so there's no flicker.
 
 ```
 context a:   1, 2, 3, ..., 10   scratch-a
@@ -10,7 +10,7 @@ context b:   1, 2, 3, ..., 10   scratch-b
 ...
 ```
 
-Only one context's workspaces are visible at a time. Hidden contexts' workspaces are renamed to `_a-1`, `_a-2`, etc. and filtered from waybar with a `^_` ignore pattern.
+Only one context's workspaces are visible at a time. Hidden contexts use `_a-1`, `_a-2`, etc. workspace names and are filtered from Waybar with a `^_` ignore pattern.
 
 ## Install
 
@@ -40,14 +40,16 @@ The gesture syntax uses the `dispatcher` action keyword introduced in 0.54 — o
 
 ## How it works
 
-Workspaces are always named `1`–`10`. The switcher does two passes of `hyprctl dispatch renameworkspace`:
+Workspaces in the active context are always named `1`–`10`. Hidden contexts are held on underscore-prefixed workspace names:
 
-1. Renames current `1`–`10` → `_<current>-1`–`_<current>-10` (hide)
-2. Renames `_<target>-N` → `N` (show)
+1. Moves windows from current `1`–`10` into `_<current>-1`–`_<current>-10`
+2. Moves windows from `_<target>-N` back into `1`–`10`
 
-Waybar's `hyprland/workspaces` module shows numeric names only; the `^_` ignore pattern hides everything else. Since the waybar config is static, no reload is ever needed — no flicker, no resize.
+Waybar's `hyprland/workspaces` module shows numeric names only; the `^_` ignore pattern hides everything else. Since the Waybar config is static during context switches, there is no flicker or resize.
 
 The context indicator in waybar is a `custom/workspace-context` module that polls `generated/current-context` once per second.
+
+The Waybar config also includes an invisible startup hook that reconciles workspace placeholders after Waybar itself restarts, such as during Omarchy theme changes.
 
 ## Atomic commands
 
@@ -89,6 +91,7 @@ for s in a-{1..4}; do hyprwayspaces-launch --if-empty $s -- alacritty; done
 - `hypr/hyprwayspaces-gestures.conf` — optional 3-finger gesture bindings; Hyprland 0.54+ only
 - `hypr/looknfeel.example.conf` — reference for hyprland options hyprwayspaces benefits from (master/cursor/etc.)
 - `templates/waybar.config.jsonc` — static waybar config (symlinked into ~/.config/waybar/)
+- `bin/hyprwayspaces-waybar-ready` — invisible Waybar startup hook that reconciles Hyprland after Waybar reloads
 - `generated/current-context` — single-letter state file
 - `install.sh` — creates the symlinks
 

@@ -30,6 +30,7 @@ link "$REPO/bin/hyprwayspaces-move"                "$HOME/.config/hypr/scripts/h
 link "$REPO/bin/hyprwayspaces-launch"              "$HOME/.config/hypr/scripts/hyprwayspaces-launch"
 link "$REPO/bin/hyprwayspaces-swap"                "$HOME/.config/hypr/scripts/hyprwayspaces-swap"
 link "$REPO/bin/hyprwayspaces-launch-terms"        "$HOME/.config/hypr/scripts/hyprwayspaces-launch-terms"
+link "$REPO/bin/hyprwayspaces-waybar-ready"        "$HOME/.config/hypr/scripts/hyprwayspaces-waybar-ready"
 link "$REPO/project-state/browser/hyprwayspaces-load-tabs"       "$HOME/.config/hypr/scripts/hyprwayspaces-load-tabs"
 link "$REPO/bin/hyprwayspaces-state"               "$HOME/.config/hypr/scripts/hyprwayspaces-state"
 link "$REPO/bin/hyprwayspaces-name"                "$HOME/.config/hypr/scripts/hyprwayspaces-name"
@@ -66,11 +67,8 @@ Done. To finish setup:
 
        exec-once = ~/.config/hypr/scripts/hyprwayspaces-switch a
 
-   Then restart waybar. ANY waybar restart (omarchy-restart-waybar, killall +
-   waybar &, pkill, etc.) must be followed by `hyprctl reload` to reconcile
-   persistent-workspaces placeholders with the actual named workspaces:
-
-       omarchy-restart-waybar && hyprctl reload
+   Waybar includes a hidden hyprwayspaces startup hook, so Omarchy theme
+   changes and Waybar restarts self-reconcile.
 
 2. Load the Firefox tab-saver extension (one-time, lasts for the Firefox session;
    for permanent use you need Developer Edition / Nightly, or self-sign via AMO):
