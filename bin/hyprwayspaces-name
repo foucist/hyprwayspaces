@@ -17,6 +17,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 STATE_FILE="$REPO_ROOT/generated/current-context"
 NAMES_FILE="$REPO_ROOT/generated/context-names.json"
+LABEL_FILE="$HOME/.config/hyprwayspaces/current-context-label"
 
 current_ctx() {
     cat "$STATE_FILE" 2>/dev/null || echo "a"
@@ -41,6 +42,11 @@ resolve() {
     [[ -n "$name" ]] && echo "$name" || echo "$ctx"
 }
 
+write_current_label() {
+    mkdir -p "$(dirname "$LABEL_FILE")"
+    resolve "$(current_ctx)" > "$LABEL_FILE"
+}
+
 set_name() {
     local ctx="$1" name="$2"
     ensure_names_file
@@ -58,6 +64,7 @@ clear_name() {
 }
 
 refresh_waybar() {
+    write_current_label
     pkill -SIGRTMIN+11 waybar 2>/dev/null || true
     hyprctl reload >/dev/null
 }

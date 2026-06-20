@@ -40,7 +40,7 @@
     }
   },
   "custom/workspace-context": {
-    "exec": "~/.config/hypr/scripts/hyprwayspaces-name",
+    "exec": "cat ~/.config/hyprwayspaces/current-context-label 2>/dev/null || ~/.config/hypr/scripts/hyprwayspaces-name",
     "interval": 60,
     "signal": 11,
     "format": "{}"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/waybar" "$HOME/.local/bin" "$REPO/generated"
+mkdir -p "$HOME/.config/hypr/scripts" "$HOME/.config/hyprwayspaces" "$HOME/.config/waybar" "$HOME/.local/bin" "$REPO/generated"
 
 link() {
     local src="$1" dst="$2"
@@ -40,6 +40,8 @@ link "$REPO/hypr/hyprwayspaces-gestures.conf"      "$HOME/.config/hypr/hyprwaysp
 link "$REPO/templates/waybar.config.jsonc"         "$HOME/.config/waybar/config.jsonc"
 
 [[ -f "$REPO/generated/current-context" ]] || echo -n "a" > "$REPO/generated/current-context"
+current_ctx="$(cat "$REPO/generated/current-context" 2>/dev/null || echo "a")"
+"$REPO/bin/hyprwayspaces-name" > "$HOME/.config/hyprwayspaces/current-context-label" 2>/dev/null || echo "$current_ctx" > "$HOME/.config/hyprwayspaces/current-context-label"
 
 # Register the Firefox native messaging host (for the tab-saver extension).
 NATIVE_HOST_DIR="$HOME/.mozilla/native-messaging-hosts"

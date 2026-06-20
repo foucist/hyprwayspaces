@@ -12,6 +12,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 STATE_FILE="$REPO_ROOT/generated/current-context"
+LABEL_FILE="$HOME/.config/hyprwayspaces/current-context-label"
+NAMES_FILE="$REPO_ROOT/generated/context-names.json"
 
 usage() {
     sed -n '2,10p' "$0" | sed 's/^# \?//'
@@ -22,6 +24,15 @@ arg="${1:-}"
 [[ -n "$arg" ]] || usage
 
 current=$(cat "$STATE_FILE" 2>/dev/null || echo "a")
+
+context_label() {
+    local ctx="$1"
+    local name=""
+    if [[ -f "$NAMES_FILE" ]]; then
+        name=$(jq -r --arg c "$ctx" '.[$c] // ""' "$NAMES_FILE" 2>/dev/null || true)
+    fi
+    [[ -n "$name" ]] && printf '%s\n' "$name" || printf '%s\n' "$ctx"
+}
 
 # Default landing workspace: keep the user on their current numeric workspace
 # when cycling contexts. Falls back to 1 when active workspace isn't numeric
@@ -91,6 +102,8 @@ esac
 mkdir -p "$(dirname "$STATE_FILE")"
 
 if [[ "$current" != "$ctx" ]]; then
+    target_label=$(context_label "$ctx")
+
     # Snapshot focused window per workspace before we wreck hyprland's
     # focus history by moving windows around.
     "$REPO_ROOT/bin/hyprwayspaces-state" save "$current"
@@ -116,6 +129,8 @@ if [[ "$current" != "$ctx" ]]; then
     [[ -n "$batch" ]] && hyprctl --batch "$batch" >/dev/null
 
     echo -n "$ctx" > "$STATE_FILE"
+    mkdir -p "$(dirname "$LABEL_FILE")"
+    printf '%s\n' "$target_label" > "$LABEL_FILE"
     pkill -SIGRTMIN+11 waybar 2>/dev/null || true
     hyprctl reload >/dev/null
 fi
